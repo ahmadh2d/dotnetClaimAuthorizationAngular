@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 using Claim.Data.Entities;
+using Claim.Enums;
 using Claim.Models;
 using Claim.ViewModels;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -46,13 +47,20 @@ public class UserController : ControllerBase
             var result = await _userManager.CreateAsync(appUser, model.Password);
             if (result.Succeeded)
             {
-                return await Task.FromResult("User is successfully Registered");
+                var user = new UserViewModel()
+                {
+                    FullName = appUser.FullName,
+                    Email = appUser.Email,
+                    UserName = appUser.UserName
+                };
+
+                return await Task.FromResult(new ResponseAPIViewModel { ResponseStatusCode = ResponseStatus.Success, ResponseMessage = "User is successfully Registered", DataSet = user });
             }
-            return await Task.FromResult(string.Join(", ", result.Errors.Select(x => x.Description).ToArray()));
+            return await Task.FromResult(new ResponseAPIViewModel { ResponseStatusCode = ResponseStatus.Failure, ResponseMessage = "Failed! Correct the fields", DataSet = result.Errors.Select(x => x.Description).ToArray() });
         }
         catch (Exception ex)
         {
-            return await Task.FromResult(ex.Message);
+            return await Task.FromResult(new ResponseAPIViewModel { ResponseStatusCode = ResponseStatus.Failure, ResponseMessage = ex.Message, DataSet = null });
         }
 
     }
@@ -72,11 +80,11 @@ public class UserController : ControllerBase
                             CreatedOn = user.CreatedOn,
                             ModifiedOn = user.ModifiedOn
                         };
-            return await Task.FromResult(users);
+            return await Task.FromResult(new ResponseAPIViewModel { ResponseStatusCode = ResponseStatus.Success, ResponseMessage = "Success! All users get", DataSet = users });
         }
         catch (Exception ex)
         {
-            return await Task.FromResult(ex.Message);
+            return await Task.FromResult(new ResponseAPIViewModel { ResponseStatusCode = ResponseStatus.Success, ResponseMessage = ex.Message, DataSet = null });
         }
     }
 
@@ -103,14 +111,14 @@ public class UserController : ControllerBase
                     Token = token
                 };
 
-                return await Task.FromResult(user);
+                return await Task.FromResult(new ResponseAPIViewModel { ResponseStatusCode = ResponseStatus.Success, ResponseMessage = "Success! You are logged in", DataSet = user });
             }
 
-            return await Task.FromResult("Invalid Username or password");
+            return await Task.FromResult(new ResponseAPIViewModel { ResponseStatusCode = ResponseStatus.Failure, ResponseMessage = "Invalid Username or password", DataSet = null });
         }
         catch (Exception ex)
         {
-            return await Task.FromResult(ex.Message);
+            return await Task.FromResult(new ResponseAPIViewModel { ResponseStatusCode = ResponseStatus.Failure, ResponseMessage = ex.Message, DataSet = null });
         }
 
     }
