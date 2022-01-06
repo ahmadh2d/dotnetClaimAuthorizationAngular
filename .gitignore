@@ -1,11 +1,4 @@
-bin/Debug/net6.0/dotnetClaimAuthorizationAngular.pdb
-obj/staticwebassets.pack.sentinel
-obj/Debug/net6.0/dotnetClaimAuthorizationAngular.assets.cache
-obj/Debug/net6.0/dotnetClaimAuthorizationAngular.csproj.CoreCompileInputs.cache
-obj/Debug/net6.0/dotnetClaimAuthorizationAngular.dll
-obj/Debug/net6.0/dotnetClaimAuthorizationAngular.pdb
-obj/Debug/net6.0/ref/dotnetClaimAuthorizationAngular.dll
-obj/Debug/net6.0/dotnetClaimAuthorizationAngular.dll
-bin/Debug/net6.0/ref/dotnetClaimAuthorizationAngular.dll
-bin/Debug/net6.0/dotnetClaimAuthorizationAngular.dll
-bin/Debug/net6.0/dotnetClaimAuthorizationAngular.pdb
+bin\
+obj\
+/bin
+/obj
