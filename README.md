@@ -3,6 +3,9 @@
 ### Youtube Video Name: "ASP .NET Core 5 Web API step by step & Integrate in Angular 11 | Secure API with JWT Token"
 Youtube Video URL: https://www.youtube.com/watch?v=BIk7PssaDe8
 
+### ASP .NET Core 5 Web API - Role based Authorization with Angular
+Youtube Video URL: https://www.youtube.com/watch?v=8RtzxlsBLlU&t=0s
+
 ### Packages Installed: 
 - Microsoft.EntityFrameworkCore (from url: https://www.nuget.org/packages/Microsoft.EntityFrameworkCore/)
     - dotnet add package Microsoft.EntityFrameworkCore
@@ -25,7 +28,7 @@ Using CLI:
 - dotnet run 
 - dotnet clean
 - dotnet remove package [package_name]
-- dotnet new webapi --language "C#" --name="" 
+- dotnet new webapi --language "C#" --name=""
 
 ### Database Details:
 MS SQL Server v18.10

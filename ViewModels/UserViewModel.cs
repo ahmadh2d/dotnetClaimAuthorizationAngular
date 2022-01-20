@@ -14,5 +14,7 @@ namespace Claim.ViewModels {
         public DateTime ModifiedOn { get; set; }
 
         public string Token { get; set; }
+
+        public string Role { get; set; }
     }
 }

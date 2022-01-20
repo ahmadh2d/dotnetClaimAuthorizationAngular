@@ -21,7 +21,11 @@ builder.Services.AddDbContext<AppDBContext>(options =>
 
 builder.Services.AddIdentity<AppUser, IdentityRole>(options => { }).AddEntityFrameworkStores<AppDBContext>();
 
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
+builder.Services.AddAuthentication(x =>
+{
+    x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    x.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+}).AddJwtBearer(options =>
 {
     var key = Encoding.ASCII.GetBytes(builder.Configuration["JWTConfig:Key"]);
     options.TokenValidationParameters = new TokenValidationParameters()
