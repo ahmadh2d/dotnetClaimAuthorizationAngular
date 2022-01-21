@@ -9,6 +9,6 @@ namespace Claim.ViewModels {
 
         public string Password { get; set; }
 
-        public string Role { get; set; }
+        public List<string> Roles { get; set; }
     }
 }

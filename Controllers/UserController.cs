@@ -41,10 +41,19 @@ public class UserController : ControllerBase
     {
         try
         {
-            if (!await _roleManager.RoleExistsAsync(model.Role))
+            if (model.Roles == null)
             {
-                return await Task.FromResult(new ResponseAPIViewModel { ResponseStatusCode = ResponseStatus.Failure, ResponseMessage = "Role doesn't exist", DataSet = null });
+                return await Task.FromResult(new ResponseAPIViewModel { ResponseStatusCode = ResponseStatus.Failure, ResponseMessage = "Failed! Roles are missing", DataSet = null });
             }
+
+            foreach (var role in model.Roles)
+            {
+                if (!await _roleManager.RoleExistsAsync(role))
+                {
+                    return await Task.FromResult(new ResponseAPIViewModel { ResponseStatusCode = ResponseStatus.Failure, ResponseMessage = "Oops! Role doesn't exist", DataSet = null });
+                }
+            }
+
 
             AppUser appUser = new AppUser
             {
@@ -62,13 +71,17 @@ public class UserController : ControllerBase
                 {
                     FullName = appUser.FullName,
                     Email = appUser.Email,
-                    UserName = appUser.UserName,
-                    Role = model.Role
+                    UserName = appUser.UserName
                 };
 
                 var tempUser = await _userManager.FindByEmailAsync(user.Email);
 
-                await _userManager.AddToRoleAsync(tempUser, model.Role);
+                user.Roles = new List<string>();
+                foreach (var role in model.Roles)
+                {
+                    user.Roles.Add(role);
+                    await _userManager.AddToRoleAsync(tempUser, role);
+                }
 
                 return await Task.FromResult(new ResponseAPIViewModel { ResponseStatusCode = ResponseStatus.Success, ResponseMessage = "User is successfully Registered", DataSet = user });
             }
@@ -81,26 +94,80 @@ public class UserController : ControllerBase
 
     }
 
+    [HttpPost("LoginUser")]
+    public async Task<object> LoginUser([FromBody] LoginUserViewModel model)
+    {
+        try
+        {
+            if (!ModelState.IsValid)
+                return await Task.FromResult(model);
+
+            var result = await _signInManager.PasswordSignInAsync(model.Email, model.Password, false, false);
+            if (result.Succeeded)
+            {
+                var appUser = await _userManager.FindByEmailAsync(model.Email);
+                var roles = (await _userManager.GetRolesAsync(appUser)).ToList();
+                var token = GenerateToken(appUser, roles);
+
+                UserViewModel user = new UserViewModel
+                {
+                    FullName = appUser.FullName,
+                    Email = appUser.Email,
+                    UserName = appUser.UserName,
+                    CreatedOn = appUser.CreatedOn,
+                    Token = token,
+                    Roles = roles
+                };
+
+                return await Task.FromResult(new ResponseAPIViewModel { ResponseStatusCode = ResponseStatus.Success, ResponseMessage = "Success! You are logged in", DataSet = user });
+            }
+
+            return await Task.FromResult(new ResponseAPIViewModel { ResponseStatusCode = ResponseStatus.Failure, ResponseMessage = "Invalid Username or password", DataSet = null });
+        }
+        catch (Exception ex)
+        {
+            return await Task.FromResult(new ResponseAPIViewModel { ResponseStatusCode = ResponseStatus.Failure, ResponseMessage = ex.Message, DataSet = null });
+        }
+
+    }
+
+
     [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Roles = "Admin")]
     [HttpGet("GetAllUsers")]
     public async Task<object> GetAllUsers()
     {
         try
         {
-            var users = from user in _appDBContext.Users
-                        join userRole in _appDBContext.UserRoles on user.Id equals userRole.UserId into ps
-                        from p in ps.DefaultIfEmpty()
-                        join role in _appDBContext.Roles on p.RoleId equals role.Id into ks
-                        from k in ks.DefaultIfEmpty()
-                        select new UserViewModel
-                        {
-                            FullName = user.FullName,
-                            Email = user.Email,
-                            UserName = user.UserName,
-                            CreatedOn = user.CreatedOn,
-                            ModifiedOn = user.ModifiedOn,
-                            Role = k.Name
-                        };
+            // var users = from user in _appDBContext.Users
+            //             join userRole in _appDBContext.UserRoles on user.Id equals userRole.UserId into ps
+            //             from p in ps.DefaultIfEmpty()
+            //             join role in _appDBContext.Roles on p.RoleId equals role.Id into ks
+            //             from k in ks.DefaultIfEmpty()
+            //             select new UserViewModel
+            //             {
+            //                 FullName = user.FullName,
+            //                 Email = user.Email,
+            //                 UserName = user.UserName,
+            //                 CreatedOn = user.CreatedOn,
+            //                 ModifiedOn = user.ModifiedOn,
+            //                 // Roles = k.Name
+            //             };
+            var users = (from user in _appDBContext.Users
+                         let query = (from userRole in _appDBContext.UserRoles
+                                      where (userRole.UserId.Equals(user.Id) || userRole.UserId.Equals(null))
+                                      join role in _appDBContext.Roles on userRole.RoleId equals role.Id into ks
+                                      from k in ks.DefaultIfEmpty()
+                                      select k.Name).ToList()
+                         select new UserViewModel
+                         {
+                             FullName = user.FullName,
+                             Email = user.Email,
+                             UserName = user.UserName,
+                             CreatedOn = user.CreatedOn,
+                             ModifiedOn = user.ModifiedOn,
+                             Roles = query
+                         }).ToList();
+
             return await Task.FromResult(new ResponseAPIViewModel { ResponseStatusCode = ResponseStatus.Success, ResponseMessage = "Success! All users get", DataSet = users });
         }
         catch (Exception ex)
@@ -119,6 +186,9 @@ public class UserController : ControllerBase
                         join userRole in _appDBContext.UserRoles on user.Id equals userRole.UserId
                         join role in _appDBContext.Roles on userRole.RoleId equals role.Id
                         where role.Name == "User"
+                        let query = (from role in _appDBContext.Roles
+                                     where role.Id.Equals(userRole.RoleId)
+                                     select role.Name).ToList()
                         select new UserViewModel
                         {
                             FullName = user.FullName,
@@ -126,7 +196,7 @@ public class UserController : ControllerBase
                             UserName = user.UserName,
                             CreatedOn = user.CreatedOn,
                             ModifiedOn = user.ModifiedOn,
-                            Role = role.Name
+                            Roles = query
                         };
             return await Task.FromResult(new ResponseAPIViewModel { ResponseStatusCode = ResponseStatus.Success, ResponseMessage = "Success! All users get", DataSet = users });
         }
@@ -136,42 +206,6 @@ public class UserController : ControllerBase
         }
     }
 
-    [HttpPost("LoginUser")]
-    public async Task<object> LoginUser([FromBody] LoginUserViewModel model)
-    {
-        try
-        {
-            if (!ModelState.IsValid)
-                return await Task.FromResult(model);
-
-            var result = await _signInManager.PasswordSignInAsync(model.Email, model.Password, false, false);
-            if (result.Succeeded)
-            {
-                var appUser = await _userManager.FindByEmailAsync(model.Email);
-                var role = (await _userManager.GetRolesAsync(appUser)).FirstOrDefault();
-                var token = GenerateToken(appUser, role);
-
-                UserViewModel user = new UserViewModel
-                {
-                    FullName = appUser.FullName,
-                    Email = appUser.Email,
-                    UserName = appUser.UserName,
-                    CreatedOn = appUser.CreatedOn,
-                    Token = token,
-                    Role = role
-                };
-
-                return await Task.FromResult(new ResponseAPIViewModel { ResponseStatusCode = ResponseStatus.Success, ResponseMessage = "Success! You are logged in", DataSet = user });
-            }
-
-            return await Task.FromResult(new ResponseAPIViewModel { ResponseStatusCode = ResponseStatus.Failure, ResponseMessage = "Invalid Username or password", DataSet = null });
-        }
-        catch (Exception ex)
-        {
-            return await Task.FromResult(new ResponseAPIViewModel { ResponseStatusCode = ResponseStatus.Failure, ResponseMessage = ex.Message, DataSet = null });
-        }
-
-    }
 
     [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Roles = "Admin")]
     [HttpPost("AddRole")]
@@ -210,7 +244,7 @@ public class UserController : ControllerBase
     {
         try
         {
-            var roles = _appDBContext.Roles.Select(x => new {Id= x.Id, RoleName = x.Name});
+            var roles = _appDBContext.Roles.Select(x => new { Id = x.Id, RoleName = x.Name });
 
             return await Task.FromResult(new ResponseAPIViewModel { ResponseStatusCode = ResponseStatus.Success, ResponseMessage = "Success, Here are all roles", DataSet = roles });
         }
@@ -220,18 +254,24 @@ public class UserController : ControllerBase
         }
     }
 
-    private string GenerateToken(AppUser user, string role)
+    private string GenerateToken(AppUser user, List<string> roles)
     {
+        var claims = new List<System.Security.Claims.Claim>() {
+            new System.Security.Claims.Claim(JwtRegisteredClaimNames.NameId, user.Id),
+            new System.Security.Claims.Claim(JwtRegisteredClaimNames.Email, user.Email),
+            new System.Security.Claims.Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+        };
+
+        foreach (var role in roles)
+        {
+            claims.Add(new System.Security.Claims.Claim(ClaimTypes.Role, role));
+        }
+
         var jwtTokenHandler = new JwtSecurityTokenHandler();
         var key = Encoding.ASCII.GetBytes(_jwtConfig.Key);
         var tokenDescriptor = new SecurityTokenDescriptor
         {
-            Subject = new System.Security.Claims.ClaimsIdentity(new[] {
-            new System.Security.Claims.Claim(JwtRegisteredClaimNames.NameId, user.Id),
-            new System.Security.Claims.Claim(JwtRegisteredClaimNames.Email, user.Email),
-            new System.Security.Claims.Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-            new System.Security.Claims.Claim(ClaimTypes.Role, role),
-        }),
+            Subject = new System.Security.Claims.ClaimsIdentity(claims),
             Expires = DateTime.UtcNow.AddHours(12),
             SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
         };
